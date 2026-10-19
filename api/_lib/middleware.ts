@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { isIP } from "node:net";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { APP_NETWORK, DEFAULT_ALLOWED_ORIGIN } from "@meridian/shared";
 import { Ratelimit } from "@upstash/ratelimit";
@@ -102,16 +103,14 @@ export function vaultReadCacheControl(): string {
 }
 
 function clientIp(req: VercelRequest): string {
-  const vercelIp = req.headers["x-vercel-forwarded-for"];
-  if (typeof vercelIp === "string" && vercelIp)
-    return vercelIp.split(",")[0]?.trim() ?? vercelIp;
+  const vercelHeader = req.headers["x-vercel-forwarded-for"];
+  const vercelValue = Array.isArray(vercelHeader)
+    ? vercelHeader[0]
+    : vercelHeader;
+  const vercelIp = vercelValue?.split(",")[0]?.trim();
+  if (vercelIp && isIP(vercelIp)) return vercelIp;
 
-  const fwd = req.headers["x-forwarded-for"];
-  return (
-    (typeof fwd === "string" ? (fwd.split(",")[0]?.trim() ?? fwd) : null) ??
-    req.socket?.remoteAddress ??
-    "unknown"
-  );
+  return req.socket?.remoteAddress ?? "unknown";
 }
 
 /**
